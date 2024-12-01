@@ -7,9 +7,11 @@ from lumibot.brokers import Alpaca
 from alpaca_trade_api import REST
 from timedelta import Timedelta
 
-API_key =""
-API_secret =""
-BASE_URL =" https://demo-api.ig.com/gateway/deal"
+import properties
+
+API_KEY = properties.API_KEY
+API_SECRET = properties.API_SECRET
+BASE_URL = properties.BASE_URL
 
 
 ALPACAS_CREDS = {
@@ -26,14 +28,15 @@ class MLTrader(Strategy):
         self.sleeptime = "24H"
         self.lasttrade = None
         self.cash_at_risk = cash_at_risk
-        self.api = REST(base_url=BASE_URL, api_key=API_key, api_secret=API_secret)
+        self.api = REST(base_url=BASE_URL, key_id=API_key, secret_key=API_secret)
 
     def on_trading_iteration(self):
         cash, last_price, quantity = self.position_sizing() 
 
         if cash > last_price:
-            if self.first_iteration:
-                price = self.get_last_price(self.symbol)
+            if self.lasttrade == None:
+                news = self.get_news()
+                print(news)
                 order = self.create_order(self.symbol, 
                                           quantity,
                                           "buy",
@@ -49,8 +52,19 @@ class MLTrader(Strategy):
         quantity = cash * self.cash_at_risk // last_price
         return cash, last_price, quantity
     
+    def get_dates(self):
+        today = self.get_datetime()
+        three_days_prior = today - Timedelta(days=3)
+        return today.strftime("%Y-%m-%d"), three_days_prior.strftime("%Y-%m-%d")
+
     def get_news(self):
-        pass
+        today, three_days_prior = self.get_dates()
+        self.api.get_news(symbol=self.symbol, 
+                          start=three_days_prior, 
+                          end=today)
+        
+        news = [ev.__dict__["_raw"]["headline"] for ev in news]
+        return news
 
 
 
